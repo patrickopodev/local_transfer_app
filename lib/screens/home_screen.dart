@@ -123,7 +123,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _sendTo(TransferDevice device) async {
-    final picked = await FilePicker.platform.pickFiles();
+    final picked = await FilePicker.pickFiles();
     if (picked == null || picked.files.single.path == null) return;
     final path = picked.files.single.path!;
     final file = File(path);
