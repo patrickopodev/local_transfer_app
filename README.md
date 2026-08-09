@@ -1,4 +1,4 @@
-# local_transfer_app
+# LocalDrop
 
 A new Flutter project.
 

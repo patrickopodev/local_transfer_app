@@ -1,6 +1,6 @@
 {
-    "name": "local_transfer_app",
-    "short_name": "local_transfer_app",
+    "name": "LocalDrop",
+    "short_name": "LocalDrop",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

@@ -55,6 +55,7 @@ class TransferService {
 
   ServerSocket? _server;
   String? _saveDirOverride;
+  bool _cancelRequested = false;
 
   Stream<ReceiveEvent> get onIncoming => _incoming.stream;
 
@@ -87,6 +88,7 @@ class TransferService {
   }
 
   Future<void> _handleIncoming(Socket client) async {
+    final source = client.remoteAddress.address;
     var buffer = <int>[];
     TransferMeta? meta;
     IOSink? sink;
@@ -120,6 +122,7 @@ class TransferService {
           } catch (e) {
             _incoming.add(ReceiveEvent.error(
               error: 'Invalid metadata header: $e',
+              source: source,
             ));
             await abort();
             return;
@@ -135,6 +138,7 @@ class TransferService {
               id: jobId,
               meta: meta!,
               savePath: target!.path,
+              source: source,
             ),
           );
 
@@ -178,12 +182,17 @@ class TransferService {
             meta: meta!,
             savePath: target!.path,
             verified: ok,
+            source: source,
           ),
         );
         await abort();
       },
       onError: (Object e) async {
-        _incoming.add(ReceiveEvent.error(error: e.toString()));
+        _incoming.add(ReceiveEvent.error(
+          error: e.toString(),
+          source: source,
+          id: started ? jobId : -1,
+        ));
         await abort();
       },
     );
@@ -215,13 +224,21 @@ class TransferService {
     return sink.digest.toString();
   }
 
-  /// Sends [file] to the peer at [ip]:[port] with a JSON metadata header.
+  /// Aborts the currently running [send], if any. The next loop iteration
+  /// stops and the socket is closed so the peer sees an early EOF.
+  void cancelCurrent() {
+    _cancelRequested = true;
+  }
+
+  /// Sends [file] to the destination at [ip]:[port] with a JSON metadata
+  /// header. [onCancelled] fires if [cancelCurrent] was requested mid-transfer.
   Future<void> send(
     String ip,
     int port,
     File file, {
     void Function(double progress)? onProgress,
     void Function()? onDone,
+    void Function()? onCancelled,
   }) async {
     final meta = TransferMeta(
       filename: file.uri.pathSegments.last,
@@ -229,8 +246,10 @@ class TransferService {
       checksum: await _checksum(file),
     );
 
+    _cancelRequested = false;
     final socket = await Socket.connect(ip, port,
         timeout: const Duration(seconds: 15));
+    var cancelled = false;
     try {
       final header = '${jsonEncode(meta.toJson())}\n';
       socket.add(utf8.encode(header));
@@ -240,6 +259,10 @@ class TransferService {
       var sent = 0;
       try {
         while (true) {
+          if (_cancelRequested) {
+            cancelled = true;
+            break;
+          }
           final chunk = await raf.read(chunkSize);
           if (chunk.isEmpty) break;
           socket.add(chunk);
@@ -250,9 +273,17 @@ class TransferService {
         await raf.close();
       }
       await socket.flush();
-      onDone?.call();
+      if (cancelled) {
+        onCancelled?.call();
+      } else {
+        onDone?.call();
+      }
     } finally {
-      await socket.close();
+      try {
+        await socket.close();
+      } catch (_) {
+        // Socket already closed/errored; nothing more to clean up.
+      }
     }
   }
 
@@ -269,22 +300,28 @@ sealed class ReceiveEvent {
   final TransferMeta meta;
   final String savePath;
 
+  /// Peer address that sent the file ('0.0.0.0' when unknown).
+  final String source;
+
   ReceiveEvent._({
     required this.id,
     required this.meta,
     required this.savePath,
+    this.source = '0.0.0.0',
   });
 
   factory ReceiveEvent.started({
     required int id,
     required TransferMeta meta,
     required String savePath,
+    String source,
   }) = ReceiveStarted;
 
   factory ReceiveEvent.progress({
     required int id,
     required int received,
     required int total,
+    String source,
   }) = ReceiveProgress;
 
   factory ReceiveEvent.completed({
@@ -292,9 +329,14 @@ sealed class ReceiveEvent {
     required TransferMeta meta,
     required String savePath,
     required bool verified,
+    String source,
   }) = ReceiveCompleted;
 
-  factory ReceiveEvent.error({required String error}) = ReceiveError;
+factory ReceiveEvent.error({
+    required String error,
+    String source,
+    int id,
+  }) = ReceiveError;
 }
 
 class ReceiveStarted extends ReceiveEvent {
@@ -302,6 +344,7 @@ class ReceiveStarted extends ReceiveEvent {
     required super.id,
     required super.meta,
     required super.savePath,
+    super.source = '0.0.0.0',
   }) : super._();
 }
 
@@ -313,6 +356,7 @@ class ReceiveProgress extends ReceiveEvent {
     required super.id,
     required this.received,
     required this.total,
+    super.source = '0.0.0.0',
   }) : super._(
           meta: TransferMeta(filename: '', size: total, checksum: ''),
           savePath: '',
@@ -327,15 +371,15 @@ class ReceiveCompleted extends ReceiveEvent {
     required super.meta,
     required super.savePath,
     required this.verified,
+    super.source = '0.0.0.0',
   }) : super._();
 }
 
 class ReceiveError extends ReceiveEvent {
   final String error;
 
-  ReceiveError({required this.error})
+  ReceiveError({required this.error, super.source, super.id = -1})
       : super._(
-          id: -1,
           meta: TransferMeta(filename: '', size: 0, checksum: ''),
           savePath: '',
         );
