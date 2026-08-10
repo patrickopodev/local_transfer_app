@@ -69,6 +69,29 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  /// Toggles receiving with visible feedback; failures surface via a snackbar
+  /// instead of an unhandled exception crashing the app.
+  Future<void> _toggleReceive(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (controller.receiving) {
+      await controller.stop();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('No longer receiving')),
+      );
+    } else {
+      await controller.start();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            controller.receiveError != null
+                ? 'Could not start receiving: ${controller.receiveError}'
+                : 'Receiving — nearby devices can send you files',
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
@@ -152,7 +175,7 @@ class HomeScreen extends StatelessWidget {
                         subtitle: 'Files from device',
                         icon: Icons.arrow_downward,
                         color: AppColors.receive,
-                        onTap: () => controller.start(),
+                        onTap: () => _toggleReceive(context),
                       ),
                     ),
                     const SizedBox(height: AppSpace.xxl),
@@ -176,7 +199,7 @@ class HomeScreen extends StatelessWidget {
                     ),
                     IconButton(
                       tooltip: 'Refresh',
-                      onPressed: () => controller.start(),
+                      onPressed: controller.refresh,
                       icon: const Icon(Icons.refresh, color: AppColors.primary),
                     ),
                   ],

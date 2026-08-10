@@ -31,6 +31,12 @@ class AppController extends ChangeNotifier {
   bool _receiving = false;
   bool get receiving => _receiving;
 
+  /// Set when the last [start] attempt failed to open the listener/discovery,
+  /// so the UI can surface a reason instead of an unhandled exception.
+  String? _receiveError;
+  String? get receiveError => _receiveError;
+
+  bool _busy = false;
   int _nextId = 0;
 
   /// Active (in-flight) records keyed by their record id so progress/terminal
@@ -51,18 +57,52 @@ class AppController extends ChangeNotifier {
   }
 
   /// Starts receiving: opens the TCP listener and begins advertising on LAN.
+  ///
+  /// Idempotent — safe to call repeatedly (a no-op when already receiving),
+  /// serialized so double-taps can't double-bind sockets, and it never throws:
+  /// a failure is recorded in [receiveError] so the UI can show a snackbar
+  /// instead of crashing with an unhandled async exception.
   Future<void> start() async {
-    await _transferService.start();
-    await _discovery.start();
-    _receiving = true;
+    if (_busy || _receiving) return;
+    _busy = true;
+    _receiveError = null;
+    try {
+      await _transferService.start();
+      try {
+        await _discovery.start();
+      } catch (_) {
+        await _transferService.stop();
+        rethrow;
+      }
+      _receiving = true;
+    } catch (e) {
+      _receiving = false;
+      _receiveError = e.toString();
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
+  }
+
+  /// Re-announces this device and prunes stale peers without tearing down the
+  /// listener (the refresh button on Home).
+  void refresh() {
+    _discovery.refresh();
     notifyListeners();
   }
 
   Future<void> stop() async {
-    await _transferService.stop();
-    await _discovery.stop();
-    _receiving = false;
-    notifyListeners();
+    if (_busy) return;
+    _busy = true;
+    try {
+      await _transferService.stop();
+      await _discovery.stop();
+    } finally {
+      _receiving = false;
+      _receiveError = null;
+      _busy = false;
+      notifyListeners();
+    }
   }
 
   int _newId() => _nextId++;
@@ -254,8 +294,12 @@ class AppController extends ChangeNotifier {
 
   @override
   void dispose() {
-    _discovery.stop();
-    _transferService.stop();
+    try {
+      _discovery.stop();
+    } catch (_) {}
+    try {
+      _transferService.stop();
+    } catch (_) {}
     devices.dispose();
     history.dispose();
     super.dispose();

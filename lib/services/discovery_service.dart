@@ -65,6 +65,13 @@ class DiscoveryService {
     _peers.clear();
   }
 
+  /// Re-announces this device and drops stale peers immediately, without
+  /// rebinding the socket (the Home refresh affordance).
+  void refresh() {
+    _prune();
+    _announce();
+  }
+
   void _announce() {
     final socket = _socket;
     if (socket == null) return;

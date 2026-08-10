@@ -5,11 +5,31 @@ import '../../models/transfer_record.dart';
 import '../../theme/theme.dart';
 import '../../utils/format.dart';
 
-/// History of completed transfers (design doc §3, Transfers tab).
-class TransfersScreen extends StatelessWidget {
+/// History of transfers (design doc §3, Transfers tab) with a status filter.
+class TransfersScreen extends StatefulWidget {
   const TransfersScreen({super.key, required this.controller});
 
   final AppController controller;
+
+  @override
+  State<TransfersScreen> createState() => _TransfersScreenState();
+}
+
+enum _TransferFilter { all, active, completed, failed }
+
+class _TransfersScreenState extends State<TransfersScreen> {
+  _TransferFilter _filter = _TransferFilter.all;
+
+  bool _matches(TransferRecord record) => switch (_filter) {
+        _TransferFilter.all => true,
+        _TransferFilter.active =>
+          record.status == TransferRecordStatus.active,
+        _TransferFilter.completed =>
+          record.status == TransferRecordStatus.completed,
+        _TransferFilter.failed =>
+          record.status == TransferRecordStatus.failed ||
+              record.status == TransferRecordStatus.cancelled,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -17,25 +37,65 @@ class TransfersScreen extends StatelessWidget {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: ValueListenableBuilder<List<TransferRecord>>(
-          valueListenable: controller.history,
+          valueListenable: widget.controller.history,
           builder: (context, records, _) {
-            if (records.isEmpty) return const _EmptyState();
+            final filtered = records.where(_matches).toList();
             return CustomScrollView(
               slivers: [
                 const SliverToBoxAdapter(
                   child: _Header(),
                 ),
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(
-                      AppSpace.xl, 0, AppSpace.xl, AppSpace.xxl),
-                  sliver: SliverList.builder(
-                    itemCount: records.length,
-                    itemBuilder: (context, i) => Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpace.sm),
-                      child: _TransferRow(record: records[i]),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                        AppSpace.xl, 0, AppSpace.xl, AppSpace.lg),
+                    child: SegmentedButton<_TransferFilter>(
+                      segments: const [
+                        ButtonSegment(
+                          value: _TransferFilter.all,
+                          label: Text('All'),
+                        ),
+                        ButtonSegment(
+                          value: _TransferFilter.active,
+                          label: Text('Active'),
+                        ),
+                        ButtonSegment(
+                          value: _TransferFilter.completed,
+                          label: Text('Completed'),
+                        ),
+                        ButtonSegment(
+                          value: _TransferFilter.failed,
+                          label: Text('Failed'),
+                        ),
+                      ],
+                      selected: {_filter},
+                      onSelectionChanged: (selection) =>
+                          setState(() => _filter = selection.first),
+                      showSelectedIcon: false,
                     ),
                   ),
                 ),
+                if (filtered.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _EmptyState(
+                      title: _filter == _TransferFilter.all && records.isEmpty
+                          ? 'No transfers yet'
+                          : 'No ${_filter.name} transfers',
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(
+                        AppSpace.xl, 0, AppSpace.xl, AppSpace.xxl),
+                    sliver: SliverList.builder(
+                      itemCount: filtered.length,
+                      itemBuilder: (context, i) => Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpace.sm),
+                        child: _TransferRow(record: filtered[i]),
+                      ),
+                    ),
+                  ),
               ],
             );
           },
@@ -78,27 +138,29 @@ class _Header extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  const _EmptyState({required this.title});
+
+  final String title;
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(AppSpace.xl),
+        padding: const EdgeInsets.all(AppSpace.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.history, size: 48, color: AppColors.secondaryText),
-            SizedBox(height: AppSpace.md),
+            const Icon(Icons.history, size: 48, color: AppColors.secondaryText),
+            const SizedBox(height: AppSpace.md),
             Text(
-              'No transfers yet',
-              style: TextStyle(
+              title,
+              style: const TextStyle(
                 fontSize: AppText.sectionHeading,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(height: AppSpace.xs),
-            Text(
+            const SizedBox(height: AppSpace.xs),
+            const Text(
               'Send or receive a file and it will show up here.',
               textAlign: TextAlign.center,
               style: TextStyle(

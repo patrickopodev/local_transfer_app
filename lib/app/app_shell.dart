@@ -71,12 +71,18 @@ class _HomeTabShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<List<TransferDevice>>(
-      valueListenable: controller.devices,
-      builder: (context, devices, _) {
-        return HomeScreen(
-          controller: controller,
-          devices: devices,
+    // Listen to the controller (receiving/error state) AND the device list.
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        return ValueListenableBuilder<List<TransferDevice>>(
+          valueListenable: controller.devices,
+          builder: (context, devices, _) {
+            return HomeScreen(
+              controller: controller,
+              devices: devices,
+            );
+          },
         );
       },
     );

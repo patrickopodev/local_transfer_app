@@ -21,6 +21,46 @@ void main() {
     expect(find.text('Settings'), findsOneWidget);
   });
 
+  testWidgets('RECEIVE tap does not crash and gives visible feedback',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 2.75;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const LocalDropApp(autoStart: false));
+
+    final receive = find.text('RECEIVE');
+    expect(receive, findsOneWidget);
+    // Tap twice: start then stop. Previously the fire-and-forget start() left
+    // an unhandled SocketException when binding failed; now start() never
+    // throws and each tap yields a snackbar.
+    await tester.tap(receive);
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(SnackBar), findsOneWidget);
+  });
+
+  testWidgets('Transfers tab has Active/Completed/Failed filter',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 2.75;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const LocalDropApp(autoStart: false));
+    await tester.tap(find.text('Transfers'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('All'), findsOneWidget);
+    expect(find.text('Active'), findsOneWidget);
+    expect(find.text('Completed'), findsOneWidget);
+    expect(find.text('Failed'), findsOneWidget);
+
+    await tester.tap(find.text('Failed'));
+    await tester.pumpAndSettle();
+    expect(find.text('No failed transfers'), findsOneWidget);
+  });
+
   testWidgets('Settings tab is wired and shows device name',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1080, 2340);
