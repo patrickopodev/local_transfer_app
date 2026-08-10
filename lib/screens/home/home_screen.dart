@@ -21,7 +21,8 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final cardWidth = screenWidth - AppSpace.xl * 2;
+    final cardWidth =
+        (screenWidth - AppSpace.xl * 2).clamp(0.0, double.infinity);
 
     return Scaffold(
       body: SafeArea(
