@@ -67,31 +67,46 @@ class AppController extends ChangeNotifier {
 
   int _newId() => _nextId++;
 
-  /// Sends [files] to [device], emitting state snapshots via [onState].
+  /// Sends [files] to [device] sequentially, emitting state snapshots via
+  /// [onState]. Each file gets its own history entry that resolves to a
+  /// terminal status. The shared [_current] state always describes the file
+  /// being transferred right now, so the transfer screen tracks the whole.
   Future<void> send(
     TransferDevice device,
     List<TransferFile> files, {
     required void Function(TransferState state) onState,
   }) async {
-    final file = files.first;
-    onState(_current.copyWith(
-      status: TransferStatus.connecting,
-      filename: file.name,
-      totalBytes: file.size,
-      destination: device.name,
-    ));
+    for (final file in files) {
+      onState(_current.copyWith(
+        status: TransferStatus.connecting,
+        filename: file.name,
+        totalBytes: file.size,
+        destination: device.name,
+      ));
 
-    final id = _newId();
-    _record(TransferRecord(
-      id: id,
-      filename: file.name,
-      sizeBytes: file.size,
-      peer: device.name,
-      direction: TransferDirection.sent,
-      status: TransferRecordStatus.active,
-      timestamp: DateTime.now(),
-    ));
+      final id = _newId();
+      _record(TransferRecord(
+        id: id,
+        filename: file.name,
+        sizeBytes: file.size,
+        peer: device.name,
+        direction: TransferDirection.sent,
+        status: TransferRecordStatus.active,
+        timestamp: DateTime.now(),
+      ));
 
+      // Sequential: each file streams on its own socket and completes (or
+      // fails) before the next one starts.
+      await _sendOne(device, file, id, onState);
+    }
+  }
+
+  Future<void> _sendOne(
+    TransferDevice device,
+    TransferFile file,
+    int id,
+    void Function(TransferState) onState,
+  ) async {
     final startedAt = DateTime.now();
     var lastBytes = 0;
     try {
@@ -107,6 +122,7 @@ class AppController extends ChangeNotifier {
           final delta = received - lastBytes;
           final speed = elapsed > 0 ? delta / elapsed : 0.0;
           lastBytes = received;
+          _updateProgress(id, bytesTransferred: received);
           onState(_current.copyWith(
             status: TransferStatus.transferring,
             progress: p,
@@ -128,6 +144,8 @@ class AppController extends ChangeNotifier {
             totalBytes: file.size,
             speed: 0,
             remaining: Duration.zero,
+            filename: file.name,
+            destination: device.name,
           ));
           _resolve(id, TransferRecordStatus.completed);
         },
@@ -146,6 +164,40 @@ class AppController extends ChangeNotifier {
   }
 
   void cancelTransfer() => _transferService.cancelCurrent();
+
+  /// Changes the advertised device name (persists for this session and is
+  /// announced immediately on the LAN).
+  void setDeviceName(String name) {
+    _discovery.setSelfName(name);
+    notifyListeners();
+  }
+
+  String? get saveDirOverride => _transferService.saveDirOverride;
+
+  /// Overrides (or clears, when [path] is null) the receive directory.
+  void setSaveDir(String? path) {
+    _transferService.setSaveDir(path);
+    notifyListeners();
+  }
+
+  /// Adds a peer manually (e.g. from a scanned pairing code) so it appears in
+  /// the device list even if UDP broadcast discovery hasn't seen it. Replaces
+  /// the entry if one with the same ip:port already exists.
+  void addPairedDevice(String name, String ip, int port) {
+    final devices = [...this.devices.value];
+    final key = '$ip:$port';
+    final existingIndex = devices.indexWhere(
+      (d) => '${d.ip}:${d.port}' == key,
+    );
+    final entry = TransferDevice(name: name, ip: ip, port: port);
+    if (existingIndex == -1) {
+      devices.insert(0, entry);
+    } else {
+      devices[existingIndex] = entry;
+    }
+    this.devices.value = devices;
+    notifyListeners();
+  }
 
   void _record(TransferRecord record) {
     _active[record.id] = record;
@@ -173,7 +225,9 @@ class AppController extends ChangeNotifier {
           status: TransferRecordStatus.active,
           timestamp: DateTime.now(),
         ));
+        break;
       case ReceiveProgress():
+        _updateProgress(event.id, bytesTransferred: event.received);
         break;
       case ReceiveCompleted():
         _resolve(
@@ -182,9 +236,20 @@ class AppController extends ChangeNotifier {
               ? TransferRecordStatus.completed
               : TransferRecordStatus.failed,
         );
+        break;
       case ReceiveError():
         _resolve(event.id, TransferRecordStatus.failed);
+        break;
     }
+  }
+
+  void _updateProgress(int id, {required int bytesTransferred}) {
+    final record = _active[id];
+    if (record == null) return;
+    final updated = record.copyWith(bytesTransferred: bytesTransferred);
+    _active[id] = updated;
+    history.value =
+        history.value.map((r) => r.id == id ? updated : r).toList();
   }
 
   @override

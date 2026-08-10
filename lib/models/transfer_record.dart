@@ -18,6 +18,9 @@ class TransferRecord {
   final TransferDirection direction;
   final TransferRecordStatus status;
 
+  /// Received/sent byte count while [status] is [TransferRecordStatus.active].
+  final int bytesTransferred;
+
   final DateTime timestamp;
 
   const TransferRecord({
@@ -28,9 +31,16 @@ class TransferRecord {
     required this.direction,
     required this.status,
     required this.timestamp,
+    this.bytesTransferred = 0,
   });
 
-  TransferRecord copyWith({TransferRecordStatus? status}) {
+  double get progress =>
+      sizeBytes > 0 ? (bytesTransferred / sizeBytes).clamp(0.0, 1.0) : 0.0;
+
+  TransferRecord copyWith({
+    TransferRecordStatus? status,
+    int? bytesTransferred,
+  }) {
     return TransferRecord(
       id: id,
       filename: filename,
@@ -39,6 +49,7 @@ class TransferRecord {
       direction: direction,
       status: status ?? this.status,
       timestamp: timestamp,
+      bytesTransferred: bytesTransferred ?? this.bytesTransferred,
     );
   }
 }

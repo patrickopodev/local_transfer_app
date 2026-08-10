@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../screens/home/home_screen.dart';
+import '../screens/settings/settings_screen.dart';
 import '../screens/transfers/transfers_screen.dart';
 import '../theme/theme.dart';
 import '../models/device.dart';
@@ -27,7 +28,7 @@ class _AppShellState extends State<AppShell> {
         children: [
           _HomeTabShell(controller: widget.controller),
           TransfersScreen(controller: widget.controller),
-          const _Placeholder(title: 'Settings'),
+          SettingsScreen(controller: widget.controller),
         ],
       ),
       bottomNavigationBar: Container(
@@ -78,25 +79,6 @@ class _HomeTabShell extends StatelessWidget {
           devices: devices,
         );
       },
-    );
-  }
-}
-
-class _Placeholder extends StatelessWidget {
-  const _Placeholder({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 24,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
     );
   }
 }

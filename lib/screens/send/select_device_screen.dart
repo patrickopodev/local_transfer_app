@@ -5,6 +5,7 @@ import '../../models/device.dart';
 import '../../models/transfer_file.dart';
 import '../../theme/theme.dart';
 import '../../widgets/nearby_device_card.dart';
+import '../../widgets/pairing_sheet.dart';
 import '../transfer/transfer_screen.dart';
 
 /// Choose which nearby device receives the selected files.
@@ -111,7 +112,7 @@ class _SelectDeviceScreenState extends State<SelectDeviceScreen> {
                   ),
                   const SizedBox(height: AppSpace.md),
                   OutlinedButton.icon(
-                    onPressed: () {},
+                    onPressed: () => showPairingSheet(context, widget.controller),
                     icon: const Icon(Icons.qr_code_scanner,
                         color: AppColors.primary),
                     label: const Text(

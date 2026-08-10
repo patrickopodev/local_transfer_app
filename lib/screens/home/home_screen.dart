@@ -6,6 +6,7 @@ import '../../theme/theme.dart';
 import '../../widgets/action_card.dart';
 import '../../widgets/app_logo.dart';
 import '../../widgets/nearby_device_card.dart';
+import '../../widgets/pairing_sheet.dart';
 import '../send/send_files_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -17,6 +18,56 @@ class HomeScreen extends StatelessWidget {
 
   final AppController controller;
   final List<TransferDevice> devices;
+
+  void _showMore(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.qr_code_scanner,
+                  color: AppColors.primary),
+              title: const Text('Pair with a device'),
+              subtitle: const Text('Share or paste a pairing code'),
+              onTap: () {
+                Navigator.of(context).pop();
+                showPairingSheet(context, controller);
+              },
+            ),
+            ListTile(
+              leading: Icon(
+                controller.receiving
+                    ? Icons.sensors_off
+                    : Icons.sensors,
+                color: AppColors.primary,
+              ),
+              title: Text(
+                controller.receiving ? 'Stop receiving' : 'Start receiving',
+              ),
+              subtitle: const Text(
+                'Open the TCP listener and advertise on LAN',
+              ),
+              onTap: () {
+                Navigator.of(context).pop();
+                if (controller.receiving) {
+                  controller.stop();
+                } else {
+                  controller.start();
+                }
+              },
+            ),
+            const SizedBox(height: AppSpace.sm),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,14 +100,15 @@ class HomeScreen extends StatelessWidget {
                           children: [
                             IconButton(
                               tooltip: 'Scan QR',
-                              onPressed: () {},
+                              onPressed: () =>
+                                  showPairingSheet(context, controller),
                               icon: const Icon(Icons.qr_code_scanner,
                                   size: 24),
                               color: AppColors.text,
                             ),
                             IconButton(
                               tooltip: 'More',
-                              onPressed: () {},
+                              onPressed: () => _showMore(context),
                               icon: const Icon(Icons.more_vert, size: 24),
                               color: AppColors.text,
                             ),

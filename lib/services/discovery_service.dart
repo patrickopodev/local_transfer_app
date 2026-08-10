@@ -14,7 +14,7 @@ class DiscoveryService {
   static const int broadcastPort = 9260;
   static const Duration peerTtl = Duration(seconds: 12);
 
-  final String selfName;
+  String selfName;
   final int transferPort;
 
   RawDatagramSocket? _socket;
@@ -27,6 +27,14 @@ class DiscoveryService {
 
   DiscoveryService({required this.selfName, required this.transferPort});
 
+  /// Updates the advertised name and announces it immediately so peers see the
+  /// change without waiting for the next heartbeat tick.
+  void setSelfName(String name) {
+    if (name.isEmpty || name == selfName) return;
+    selfName = name;
+    _announce();
+    _changes.add(null);
+  }
   List<TransferDevice> get peers =>
       List.unmodifiable(_peers.values.map((p) => p.toDevice()));
 

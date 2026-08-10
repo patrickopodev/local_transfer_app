@@ -29,12 +29,15 @@ class _TransferScreenState extends State<TransferScreen> {
   TransferState _state = const TransferState();
   bool _started = false;
 
+  int get _fileCount => widget.files.length;
+
   @override
   void initState() {
     super.initState();
     _state = TransferState(
-      filename: widget.files.first.name,
-      totalBytes: widget.files.first.size,
+      filename: widget.files.isNotEmpty ? widget.files.first.name : '',
+      totalBytes:
+          widget.files.fold<int>(0, (sum, f) => sum + f.size),
       destination: widget.device.name,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) => _start());
@@ -113,7 +116,9 @@ class _TransferScreenState extends State<TransferScreen> {
                     ? 'Something went wrong. Try again.'
                     : cancelled
                         ? ''
-                        : 'Sending to ${_state.destination}',
+                        : _fileCount > 1
+                            ? '$_fileCount files · Sending to ${_state.destination}'
+                            : 'Sending to ${_state.destination}',
                 style: const TextStyle(
                   fontSize: AppText.body,
                   color: AppColors.secondaryText,

@@ -177,6 +177,16 @@ class _TransferRow extends StatelessWidget {
                     color: AppColors.secondaryText,
                   ),
                 ),
+                if (record.status == TransferRecordStatus.active) ...[
+                  const SizedBox(height: AppSpace.sm),
+                  LinearProgressIndicator(
+                    value: record.progress,
+                    minHeight: 4,
+                    borderRadius: BorderRadius.circular(2),
+                    backgroundColor: AppColors.border,
+                    color: accent,
+                  ),
+                ],
               ],
             ),
           ),

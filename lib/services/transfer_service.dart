@@ -41,11 +41,24 @@ class TransferMeta {
       );
 }
 
+/// One-line JSON ack the receiver writes back after verifying a transfer.
+class TransferAck {
+  final String status;
+  final String? message;
+
+  const TransferAck({required this.status, this.message});
+
+  bool get isOk => status == 'ok';
+}
+
 /// File transfer over raw TCP sockets (guide Section 4, Steps 4-5).
 ///
 /// Protocol: one line of JSON metadata (`\n`-terminated) followed by the raw
-/// file bytes. The receiver streams to disk and verifies the SHA-256 checksum
-/// against the metadata.
+/// file bytes. The receiver streams to disk, verifies the SHA-256 checksum
+/// against the metadata, then replies with a one-line JSON ack
+/// (`{"status":"ok"}` or `{"status":"error","message":...}`). The sender
+/// half-closes its write side to signal EOF, waits for that ack, and only
+/// reports success when the receiver confirmed the checksum.
 class TransferService {
   static const int defaultPort = 5678;
   static const int chunkSize = 64 * 1024;
@@ -69,6 +82,14 @@ class TransferService {
     final dir = Directory('${docs.path}/received');
     await dir.create(recursive: true);
     return dir;
+  }
+
+  /// Overrides the receive directory (and returns the current override, if any).
+  String? get saveDirOverride => _saveDirOverride;
+
+  /// Sets the receive directory override; null restores the platform default.
+  void setSaveDir(String? path) {
+    _saveDirOverride = path;
   }
 
   /// Starts a TCP listener on [port] accepting file transfers.
@@ -176,6 +197,19 @@ class TransferService {
         await sink!.flush();
         await sink!.close();
         final ok = await _verify(target!, meta!);
+        try {
+          // Reply with a verification ack so the sender only reports success
+          // when the checksum actually matched (send() waits on this line).
+          client.add(utf8.encode(
+            '${jsonEncode({
+              'status': ok ? 'ok' : 'error',
+              'message': ok ? null : 'checksum mismatch',
+            })}\n',
+          ));
+          await client.flush();
+        } catch (_) {
+          // Peer closed early; nothing left to ack to.
+        }
         _incoming.add(
           ReceiveEvent.completed(
             id: jobId,
@@ -231,7 +265,10 @@ class TransferService {
   }
 
   /// Sends [file] to the destination at [ip]:[port] with a JSON metadata
-  /// header. [onCancelled] fires if [cancelCurrent] was requested mid-transfer.
+  /// header. [onCancelled] fires if [cancelCurrent] was requested mid-transfer;
+  /// [onDone] fires only after the receiver verifies the SHA-256 checksum and
+  /// replies with a `{"status":"ok"}` ack. Throws if the receiver rejects the
+  /// transfer, times out, or the ack is malformed.
   Future<void> send(
     String ip,
     int port,
@@ -273,17 +310,61 @@ class TransferService {
         await raf.close();
       }
       await socket.flush();
+
       if (cancelled) {
         onCancelled?.call();
-      } else {
+        return;
+      }
+
+      // Half-close the write side (Socket.close() shuts down only the send
+      // direction) so the receiver sees EOF and verifies, then read its
+      // one-line JSON ack before deciding success/failure.
+      await socket.close();
+      final ack = await _readAck(socket);
+      if (ack.isOk) {
         onDone?.call();
+      } else {
+        throw Exception(
+            'Receiver rejected transfer: ${ack.message ?? 'unknown reason'}');
       }
     } finally {
       try {
-        await socket.close();
+        socket.destroy();
       } catch (_) {
         // Socket already closed/errored; nothing more to clean up.
       }
+    }
+  }
+
+  /// Reads the receiver's one-line JSON ack from [socket], with a 15s timeout.
+  /// The receiver replies `{"status":"ok"}` after a verified checksum, or
+  /// `{"status":"error","message":...}` on failure.
+  Future<TransferAck> _readAck(Socket socket) async {
+    try {
+      final line = await socket
+          .cast<List<int>>()
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .first
+          .timeout(const Duration(seconds: 15));
+      return _parseAck(line);
+    } on TimeoutException {
+      return const TransferAck(status: 'error', message: 'ack timeout');
+    } catch (_) {
+      return const TransferAck(
+          status: 'error', message: 'connection closed before ack');
+    }
+  }
+
+  TransferAck _parseAck(String line) {
+    try {
+      final decoded = jsonDecode(line) as Map<String, Object?>;
+      return TransferAck(
+        status: decoded['status'] as String? ?? 'error',
+        message: decoded['message'] as String?,
+      );
+    } catch (_) {
+      return const TransferAck(status: 'error', message: 'malformed ack');
     }
   }
 
