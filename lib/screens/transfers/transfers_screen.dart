@@ -56,17 +56,24 @@ class _TransfersScreenState extends State<TransfersScreen> {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(
                         AppSpace.xl, 0, AppSpace.xl, AppSpace.lg),
-                    child: Wrap(
-                      spacing: AppSpace.sm,
-                      runSpacing: AppSpace.sm,
-                      children: [
-                        for (final f in _TransferFilter.values)
-                          ChoiceChip(
+                    child: SizedBox(
+                      height: 40,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _TransferFilter.values.length,
+                        separatorBuilder: (_, _) =>
+                            const SizedBox(width: AppSpace.sm),
+                        itemBuilder: (context, i) {
+                          final f = _TransferFilter.values[i];
+                          return ChoiceChip(
                             label: Text(_label(f)),
+                            visualDensity: VisualDensity.compact,
                             selected: _filter == f,
-                            onSelected: (_) => setState(() => _filter = f),
-                          ),
-                      ],
+                            onSelected: (_) =>
+                                setState(() => _filter = f),
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
