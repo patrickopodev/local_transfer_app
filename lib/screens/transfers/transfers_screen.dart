@@ -31,6 +31,13 @@ class _TransfersScreenState extends State<TransfersScreen> {
               record.status == TransferRecordStatus.cancelled,
       };
 
+  String _label(_TransferFilter f) => switch (f) {
+        _TransferFilter.all => 'All',
+        _TransferFilter.active => 'Active',
+        _TransferFilter.completed => 'Completed',
+        _TransferFilter.failed => 'Failed',
+      };
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -49,29 +56,17 @@ class _TransfersScreenState extends State<TransfersScreen> {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(
                         AppSpace.xl, 0, AppSpace.xl, AppSpace.lg),
-                    child: SegmentedButton<_TransferFilter>(
-                      segments: const [
-                        ButtonSegment(
-                          value: _TransferFilter.all,
-                          label: Text('All'),
-                        ),
-                        ButtonSegment(
-                          value: _TransferFilter.active,
-                          label: Text('Active'),
-                        ),
-                        ButtonSegment(
-                          value: _TransferFilter.completed,
-                          label: Text('Completed'),
-                        ),
-                        ButtonSegment(
-                          value: _TransferFilter.failed,
-                          label: Text('Failed'),
-                        ),
+                    child: Wrap(
+                      spacing: AppSpace.sm,
+                      runSpacing: AppSpace.sm,
+                      children: [
+                        for (final f in _TransferFilter.values)
+                          ChoiceChip(
+                            label: Text(_label(f)),
+                            selected: _filter == f,
+                            onSelected: (_) => setState(() => _filter = f),
+                          ),
                       ],
-                      selected: {_filter},
-                      onSelectionChanged: (selection) =>
-                          setState(() => _filter = selection.first),
-                      showSelectedIcon: false,
                     ),
                   ),
                 ),
