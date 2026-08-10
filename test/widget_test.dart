@@ -44,13 +44,15 @@ void main() {
   testWidgets('Transfers tab has Active/Completed/Failed filter',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1080, 2340);
-    tester.view.devicePixelRatio = 2.75;
+    tester.view.devicePixelRatio = 2.0;
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(const LocalDropApp(autoStart: false));
     await tester.tap(find.text('Transfers'));
     await tester.pumpAndSettle();
 
+    final filterList = find.byType(ListView);
+    expect(filterList, findsOneWidget);
     expect(find.text('All'), findsOneWidget);
     expect(find.text('Active'), findsOneWidget);
     expect(find.text('Completed'), findsOneWidget);
