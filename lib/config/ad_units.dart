@@ -8,8 +8,8 @@ abstract final class AdConfig {
   /// AdMob App ID, registered under your AdMob account.
   static const String appId = 'ca-app-pub-3940256099942544~3347511713';
 
-  /// 320x50 banner on the Home tab (middle of screen).
-  static const String homeBanner =
+  /// 300x250 in-content ad in the middle of the Home tab.
+  static const String homeMediumRectangle =
       'ca-app-pub-3940256099942544/6300978111';
 
   /// 320x50 banner shown while a transfer is in progress.
