@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import '../../app/app_controller.dart';
 import '../../config/ad_units.dart';
@@ -189,7 +190,8 @@ class HomeScreen extends StatelessWidget {
                         border: Border.all(color: AppColors.border),
                       ),
                       child: const AdBanner(
-                        adUnitId: AdConfig.homeMediumRectangle,
+                        adUnitId: AdConfig.homeBanner,
+                        size: AdSize.banner,
                       ),
                     ),
                     const SizedBox(height: AppSpace.xxl),

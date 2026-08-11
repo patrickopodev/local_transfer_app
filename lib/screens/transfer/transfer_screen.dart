@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import '../../app/app_controller.dart';
+import '../../config/ad_units.dart';
 import '../../models/device.dart';
 import '../../models/transfer_file.dart';
 import '../../models/transfer_state.dart';
 import '../../theme/theme.dart';
 import '../../utils/format.dart';
+import '../../widgets/ad_banner.dart';
 import '../../widgets/transfer_progress.dart';
 import '../../widgets/transfer_stat_card.dart';
 
@@ -214,6 +217,12 @@ class _TransferScreenState extends State<TransferScreen> {
               ),
             ),
           ),
+        const SizedBox(height: AppSpace.sm),
+        const AdBanner(
+          adUnitId: AdConfig.transferBanner,
+          size: AdSize.banner,
+          align: Alignment.center,
+        ),
         const SizedBox(height: AppSpace.sm),
       ],
     );

@@ -8,11 +8,15 @@ abstract final class AdConfig {
   /// AdMob App ID, registered under your AdMob account.
   static const String appId = 'ca-app-pub-3940256099942544~3347511713';
 
-  /// Big in-content banner (Medium Rectangle, 300x250) for the Home tab.
-  static const String homeMediumRectangle =
+  /// 320x50 banner on the Home tab (middle of screen).
+  static const String homeBanner =
       'ca-app-pub-3940256099942544/6300978111';
 
-  /// Adaptive banner (full-width) for the Transfers tab.
+  /// 320x50 banner shown while a transfer is in progress.
+  static const String transferBanner =
+      'ca-app-pub-3940256099942544/6300978111';
+
+  /// 320x50 banner pinned at the bottom of the Transfers tab.
   static const String transfersBanner =
       'ca-app-pub-3940256099942544/6300978111';
 }
