@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import '../../app/app_controller.dart';
+import '../../config/ad_units.dart';
 import '../../models/transfer_record.dart';
 import '../../theme/theme.dart';
 import '../../utils/format.dart';
+import '../../widgets/ad_banner.dart';
 
 /// History of transfers (design doc §3, Transfers tab) with a status filter.
 class TransfersScreen extends StatefulWidget {
@@ -98,6 +101,17 @@ class _TransfersScreenState extends State<TransfersScreen> {
                       ),
                     ),
                   ),
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                        AppSpace.xl, AppSpace.xs, AppSpace.xl, AppSpace.xxl),
+                    child: AdBanner(
+                      adUnitId: AdConfig.transfersBanner,
+                      size: AdSize.banner,
+                      align: Alignment.center,
+                    ),
+                  ),
+                ),
               ],
             );
           },

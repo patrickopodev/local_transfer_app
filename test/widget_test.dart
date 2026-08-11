@@ -7,7 +7,7 @@ import 'package:local_transfer_app/services/pairing_codec.dart';
 void main() {
   testWidgets('App renders home screen', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1080, 2340);
-    tester.view.devicePixelRatio = 2.75;
+    tester.view.devicePixelRatio = 2.0;
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(const LocalDropApp(autoStart: false));

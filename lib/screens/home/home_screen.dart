@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_controller.dart';
+import '../../config/ad_units.dart';
 import '../../models/device.dart';
 import '../../theme/theme.dart';
 import '../../widgets/action_card.dart';
+import '../../widgets/ad_banner.dart';
 import '../../widgets/app_logo.dart';
 import '../../widgets/nearby_device_card.dart';
 import '../../widgets/pairing_sheet.dart';
@@ -176,6 +178,18 @@ class HomeScreen extends StatelessWidget {
                         icon: Icons.arrow_downward,
                         color: AppColors.receive,
                         onTap: () => _toggleReceive(context),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpace.xxl),
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: AppSpace.lg),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(AppRadius.smallCard),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: const AdBanner(
+                        adUnitId: AdConfig.homeMediumRectangle,
                       ),
                     ),
                     const SizedBox(height: AppSpace.xxl),
