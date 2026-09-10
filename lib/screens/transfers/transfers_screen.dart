@@ -26,7 +26,8 @@ class _TransfersScreenState extends State<TransfersScreen> {
   bool _matches(TransferRecord record) => switch (_filter) {
         _TransferFilter.all => true,
         _TransferFilter.active =>
-          record.status == TransferRecordStatus.active,
+          record.status == TransferRecordStatus.active ||
+              record.status == TransferRecordStatus.paused,
         _TransferFilter.completed =>
           record.status == TransferRecordStatus.completed,
         _TransferFilter.failed =>
@@ -202,6 +203,7 @@ class _TransferRow extends StatelessWidget {
     final accent = outgoing ? AppColors.primary : AppColors.receive;
     final statusColor = switch (record.status) {
       TransferRecordStatus.active => accent,
+      TransferRecordStatus.paused => AppColors.orange,
       TransferRecordStatus.completed => AppColors.receive,
       TransferRecordStatus.failed => AppColors.error,
       TransferRecordStatus.cancelled => AppColors.orange,
@@ -268,17 +270,18 @@ class _TransferRow extends StatelessWidget {
               ],
             ),
           ),
-          Icon(
-            switch (record.status) {
-              TransferRecordStatus.active =>
-                Icons.hourglass_top,
-              TransferRecordStatus.completed => Icons.check_circle,
-              TransferRecordStatus.failed => Icons.cancel,
-              TransferRecordStatus.cancelled => Icons.close,
-            },
-            color: statusColor,
-            size: 20,
-          ),
+Icon(
+             switch (record.status) {
+               TransferRecordStatus.active =>
+                 Icons.hourglass_top,
+               TransferRecordStatus.paused => Icons.pause_circle_filled,
+               TransferRecordStatus.completed => Icons.check_circle,
+               TransferRecordStatus.failed => Icons.cancel,
+               TransferRecordStatus.cancelled => Icons.close,
+             },
+             color: statusColor,
+             size: 20,
+           ),
         ],
       ),
     );

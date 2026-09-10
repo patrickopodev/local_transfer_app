@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:cryptography/cryptography.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:local_transfer_app/models/transfer_models.dart';
 import 'package:local_transfer_app/services/transfer_service.dart';
 
 void main() {
@@ -59,6 +61,47 @@ void main() {
 
     final saved = File(completed.single.savePath);
     expect(await saved.exists(), isTrue);
+    expect(await saved.readAsBytes(), await source.readAsBytes());
+  });
+
+  test('send() encrypts the payload with ChaCha20 when a peer key is given',
+      () async {
+    final recvDir = Directory('${tempDir.path}/recv')..createSync();
+    final receiver = TransferService()..setSaveDir(recvDir.path);
+    final recvKp = await X25519().newKeyPair();
+    final recvPub = await recvKp.extractPublicKey();
+    final recvPubB64 = base64Encode(recvPub.bytes);
+    await receiver.start(port: port, keyPair: recvKp);
+
+    final source = File('${tempDir.path}/source.bin');
+    await source.writeAsBytes(List<int>.generate(256 * 1024, (i) => i % 251));
+
+    final received = <ReceiveEvent>[];
+    final sub = receiver.onIncoming.listen(received.add);
+
+    var done = false;
+    Object? thrown;
+    try {
+      final sender = TransferService()..setKeyPair(await X25519().newKeyPair());
+      await sender.send(
+        '127.0.0.1',
+        port,
+        source,
+        peerPubkey: recvPubB64,
+        onDone: () => done = true,
+      );
+    } catch (e) {
+      thrown = e;
+    }
+    await sub.cancel();
+    await receiver.stop();
+
+    expect(thrown, isNull);
+    expect(done, isTrue);
+    final completed = received.whereType<ReceiveCompleted>().toList();
+    expect(completed, hasLength(1));
+    expect(completed.single.verified, isTrue);
+    final saved = File(completed.single.savePath);
     expect(await saved.readAsBytes(), await source.readAsBytes());
   });
 
@@ -173,6 +216,47 @@ void main() {
     await receiver.stop();
 
     expect(received.whereType<ReceiveError>(), isNotEmpty);
+  });
+
+  test('send() supports pause and resume', () async {
+    final recvDir = Directory('${tempDir.path}/recv')..createSync();
+    final receiver = TransferService()..setSaveDir(recvDir.path);
+    await receiver.start(port: port);
+
+    final source = File('${tempDir.path}/source.bin');
+    await source.writeAsBytes(List<int>.generate(512 * 1024, (i) => i % 251));
+
+    final received = <ReceiveEvent>[];
+    final sub = receiver.onIncoming.listen(received.add);
+
+    var done = false;
+    Object? thrown;
+    try {
+      final sender = TransferService();
+      final sendFuture = sender.send(
+        '127.0.0.1',
+        port,
+        source,
+        onDone: () => done = true,
+      );
+      // Let transfer start
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(sender.isPaused, isFalse);
+      sender.pause();
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(sender.isPaused, isTrue);
+      sender.resume();
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(sender.isPaused, isFalse);
+      await sendFuture;
+    } catch (e) {
+      thrown = e;
+    }
+    await sub.cancel();
+    await receiver.stop();
+
+    expect(thrown, isNull);
+    expect(done, isTrue);
   });
 }
 

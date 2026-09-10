@@ -7,6 +7,7 @@ import '../app/app_controller.dart';
 import '../services/pairing_codec.dart';
 import '../services/transfer_service.dart';
 import '../theme/theme.dart';
+import 'qr_scanner.dart';
 
 /// Pairing sheet behind the "Scan QR" buttons: shows this device's pairing
 /// code (copyable) and lets you paste a peer's code to add them directly,
@@ -74,6 +75,7 @@ class _PairingSheetState extends State<_PairingSheet> {
       widget.controller.selfName,
       ip ?? '255.255.255.255',
       TransferService.defaultPort,
+      pubkey: widget.controller.selfPubkey,
     );
     if (mounted) {
       setState(() {
@@ -93,8 +95,33 @@ class _PairingSheetState extends State<_PairingSheet> {
       decoded.name,
       decoded.ip,
       decoded.port,
+      pubkey: decoded.pubkey,
     );
     Navigator.of(context).pop();
+  }
+
+  void _onCodeScanned(String code) {
+    final decoded = PairingCodec.decode(code);
+    if (decoded != null) {
+      widget.controller.addPairedDevice(
+        decoded.name,
+        decoded.ip,
+        decoded.port,
+        pubkey: decoded.pubkey,
+      );
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Paired with ${decoded.name}'),
+          ),
+        );
+      }
+    } else if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid pairing code')),
+      );
+    }
   }
 
   @override
@@ -221,6 +248,28 @@ class _PairingSheetState extends State<_PairingSheet> {
                 foregroundColor: Colors.white,
               ),
               child: const Text('Add device'),
+            ),
+          ),
+          const SizedBox(height: AppSpace.sm),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => QrScanner(
+                      onCodeScanned: _onCodeScanned,
+                    ),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.qr_code_scanner),
+              label: const Text('Scan QR Code'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.primary),
+              ),
             ),
           ),
         ],

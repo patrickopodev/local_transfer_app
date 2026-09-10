@@ -37,21 +37,25 @@ class _AdBannerState extends State<AdBanner> {
       request: const AdRequest(),
       listener: BannerAdListener(
         onAdLoaded: (_) => setState(() => _loaded = true),
-        onAdFailedToLoad: (_, _) => _ad?.dispose(),
+        onAdFailedToLoad: (_, error) {
+          _ad?.dispose();
+          _ad = null;
+        },
       ),
     );
     _ad = ad;
     try {
       await ad.load();
     } catch (_) {
-      // No ad SDK on the platform (or in tests) — keep the placeholder.
       _ad?.dispose();
+      _ad = null;
     }
   }
 
   @override
   void dispose() {
     _ad?.dispose();
+    _ad = null;
     super.dispose();
   }
 

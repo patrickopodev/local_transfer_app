@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import '../../app/app_controller.dart';
 import '../../models/device.dart';
 import '../../models/transfer_file.dart';
+import '../../services/pairing_codec.dart';
 import '../../theme/theme.dart';
 import '../../widgets/nearby_device_card.dart';
-import '../../widgets/pairing_sheet.dart';
+import '../../widgets/qr_scanner.dart';
 import '../transfer/transfer_screen.dart';
 
 /// Choose which nearby device receives the selected files.
@@ -112,7 +113,43 @@ class _SelectDeviceScreenState extends State<SelectDeviceScreen> {
                   ),
                   const SizedBox(height: AppSpace.md),
                   OutlinedButton.icon(
-                    onPressed: () => showPairingSheet(context, widget.controller),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => QrScanner(
+                            onCodeScanned: (code) {
+                              final decoded =
+                                  PairingCodec.decode(code);
+                              if (decoded != null) {
+                                widget.controller
+                                    .addPairedDevice(
+                                      decoded.name,
+                                      decoded.ip,
+                                      decoded.port,
+                                      pubkey: decoded.pubkey,
+                                    );
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context)
+                                      .showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                          'Paired with ${decoded.name}'),
+                                    ),
+                                  );
+                                }
+                              } else if (context.mounted) {
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(
+                                  const SnackBar(
+                                      content: Text(
+                                          'Invalid pairing code')),
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                      );
+                    },
                     icon: const Icon(Icons.qr_code_scanner,
                         color: AppColors.primary),
                     label: const Text(

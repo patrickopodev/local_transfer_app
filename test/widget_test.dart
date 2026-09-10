@@ -18,6 +18,7 @@ void main() {
     expect(find.text('RECEIVE'), findsOneWidget);
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Transfers'), findsOneWidget);
+    expect(find.text('Media'), findsOneWidget);
     expect(find.text('Settings'), findsOneWidget);
   });
 
@@ -76,6 +77,31 @@ void main() {
     expect(find.text('Device name'), findsOneWidget);
     expect(find.text('Receive location'), findsOneWidget);
     expect(find.text('Choose folder'), findsOneWidget);
+  });
+
+  testWidgets('Media tab is accessible', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const LocalDropApp(autoStart: false));
+    await tester.tap(find.text('Media'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No media yet'), findsOneWidget);
+  });
+
+  testWidgets('Transfers tab filters work correctly',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const LocalDropApp(autoStart: false));
+    await tester.tap(find.text('Transfers'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No transfers yet'), findsOneWidget);
   });
 
   test('PairingCodec round-trips name/ip/port', () {

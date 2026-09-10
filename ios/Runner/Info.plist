@@ -8,6 +8,8 @@
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
 	<string>Local Transfer</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Camera access is required to scan QR pairing codes.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Used to discover nearby devices on the same WiFi network so you can send and receive files.</string>
 	<key>CFBundleExecutable</key>

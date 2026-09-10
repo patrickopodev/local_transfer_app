@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../screens/home/home_screen.dart';
+import '../screens/media/media_screen.dart';
 import '../screens/settings/settings_screen.dart';
 import '../screens/transfers/transfers_screen.dart';
 import '../theme/theme.dart';
@@ -28,6 +29,7 @@ class _AppShellState extends State<AppShell> {
         children: [
           _HomeTabShell(controller: widget.controller),
           TransfersScreen(controller: widget.controller),
+          MediaScreen(controller: widget.controller),
           SettingsScreen(controller: widget.controller),
         ],
       ),
@@ -50,6 +52,11 @@ class _AppShellState extends State<AppShell> {
                 icon: Icon(Icons.receipt_long_outlined),
                 selectedIcon: Icon(Icons.receipt_long),
                 label: 'Transfers',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.photo_library_outlined),
+                selectedIcon: Icon(Icons.photo_library),
+                label: 'Media',
               ),
               NavigationDestination(
                 icon: Icon(Icons.settings_outlined),

@@ -40,6 +40,21 @@ class _SendFilesScreenState extends State<SendFilesScreen> {
     setState(() => _files.addAll(files));
   }
 
+  Future<void> _pickFolder() async {
+    final path = await FilePicker.getDirectoryPath();
+    if (path == null) return;
+    final dir = Directory(path);
+    if (!(await dir.exists())) return;
+    final entities = await dir.list(recursive: true).toList();
+    final files = entities
+        .whereType<File>()
+        .map((f) => TransferFile.fromFile(f))
+        .where((f) => f.size > 0)
+        .toList();
+    if (files.isEmpty) return;
+    setState(() => _files.addAll(files));
+  }
+
   void _goNext() {
     final device = widget.initialDevice;
     Navigator.of(context).push(
@@ -78,21 +93,24 @@ class _SendFilesScreenState extends State<SendFilesScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(AppSpace.xl),
                 children: [
-                  Row(
-                    children: [
-                      _category('Photos', Icons.image, AppColors.primary,
-                          onTap: _pickFiles),
-                      const SizedBox(width: AppSpace.sm),
-                      _category('Videos', Icons.play_arrow,
-                          AppColors.purple, onTap: _pickFiles),
-                      const SizedBox(width: AppSpace.sm),
-                      _category('Documents', Icons.description,
-                          AppColors.orange, onTap: _pickFiles),
-                      const SizedBox(width: AppSpace.sm),
-                      _category('Files', Icons.folder, AppColors.receive,
-                          onTap: _pickFiles),
-                    ],
-                  ),
+Row(
+                     children: [
+                       _category('Photos', Icons.image, AppColors.primary,
+                           onTap: _pickFiles),
+                       const SizedBox(width: AppSpace.sm),
+                       _category('Videos', Icons.play_arrow,
+                           AppColors.purple, onTap: _pickFiles),
+                       const SizedBox(width: AppSpace.sm),
+                       _category('Documents', Icons.description,
+                           AppColors.orange, onTap: _pickFiles),
+                       const SizedBox(width: AppSpace.sm),
+                       _category('Files', Icons.folder, AppColors.receive,
+                           onTap: _pickFiles),
+                       const SizedBox(width: AppSpace.sm),
+                       _category('Folder', Icons.folder_open, AppColors.orange,
+                           onTap: _pickFolder),
+                     ],
+                   ),
                   const SizedBox(height: AppSpace.xl),
                   if (_files.isNotEmpty) ...[
                     Row(

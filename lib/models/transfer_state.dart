@@ -18,6 +18,7 @@ class TransferState {
   final Duration remaining;
   final String filename;
   final String destination;
+  final bool isPaused;
 
   const TransferState({
     this.status = TransferStatus.idle,
@@ -28,9 +29,14 @@ class TransferState {
     this.remaining = Duration.zero,
     this.filename = '',
     this.destination = '',
+    this.isPaused = false,
   });
 
   bool get isActive =>
+      status == TransferStatus.connecting ||
+      status == TransferStatus.transferring;
+
+  bool get isPausable =>
       status == TransferStatus.connecting ||
       status == TransferStatus.transferring;
 
@@ -43,6 +49,7 @@ class TransferState {
     Duration? remaining,
     String? filename,
     String? destination,
+    bool? isPaused,
   }) {
     return TransferState(
       status: status ?? this.status,
@@ -53,6 +60,7 @@ class TransferState {
       remaining: remaining ?? this.remaining,
       filename: filename ?? this.filename,
       destination: destination ?? this.destination,
+      isPaused: isPaused ?? this.isPaused,
     );
   }
 }

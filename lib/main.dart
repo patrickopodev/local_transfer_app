@@ -39,6 +39,11 @@ class _LocalDropAppRootState extends State<LocalDropAppRoot> {
   @override
   void initState() {
     super.initState();
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    await _controller.init();
     if (widget.autoStart) {
       _controller.start().catchError((Object _) {
         // Networking may be unavailable (e.g. bad permissions); the UI

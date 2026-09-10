@@ -72,11 +72,22 @@ class _TransferScreenState extends State<TransferScreen> {
     setState(() => _state = _state.copyWith(status: TransferStatus.cancelled));
   }
 
+  void _pause() {
+    widget.controller.pauseTransfer();
+    setState(() => _state = _state.copyWith(isPaused: true));
+  }
+
+  void _resume() {
+    widget.controller.resumeTransfer();
+    setState(() => _state = _state.copyWith(isPaused: false));
+  }
+
   @override
   Widget build(BuildContext context) {
     final completed = _state.status == TransferStatus.completed;
     final failed = _state.status == TransferStatus.failed;
     final cancelled = _state.status == TransferStatus.cancelled;
+    final paused = _state.isPaused;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -106,13 +117,13 @@ class _TransferScreenState extends State<TransferScreen> {
                     Navigator.of(context).pop();
                   },
                 )
-              : _buildProgressView(failed, cancelled),
+              : _buildProgressView(failed, cancelled, paused),
         ),
       ),
     );
   }
 
-  Widget _buildProgressView(bool failed, bool cancelled) {
+  Widget _buildProgressView(bool failed, bool cancelled, bool paused) {
     return Column(
       children: [
         const Spacer(),
@@ -129,7 +140,9 @@ class _TransferScreenState extends State<TransferScreen> {
               ? 'Transfer Failed'
               : cancelled
                   ? 'Transfer Cancelled'
-                  : _state.filename,
+                  : paused
+                      ? 'Transfer Paused'
+                      : _state.filename,
           textAlign: TextAlign.center,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
@@ -144,9 +157,11 @@ class _TransferScreenState extends State<TransferScreen> {
               ? 'Something went wrong. Try again.'
               : cancelled
                   ? ''
-                  : _fileCount > 1
-                      ? '$_fileCount files · Sending to ${_state.destination}'
-                      : 'Sending to ${_state.destination}',
+                  : paused
+                      ? 'Transfer is paused. Tap Resume to continue.'
+                      : _fileCount > 1
+                          ? '$_fileCount files · Sending to ${_state.destination}'
+                          : 'Sending to ${_state.destination}',
           style: const TextStyle(
             fontSize: AppText.body,
             color: AppColors.secondaryText,
@@ -195,27 +210,77 @@ class _TransferScreenState extends State<TransferScreen> {
               ),
             ),
           )
-        else
+        else if (paused)
           SizedBox(
             width: double.infinity,
             height: 52,
             child: OutlinedButton(
-              onPressed: _cancel,
+              onPressed: _resume,
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.error,
-                side: const BorderSide(color: AppColors.error),
+                foregroundColor: AppColors.receive,
+                side: const BorderSide(color: AppColors.receive),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppRadius.button),
                 ),
               ),
               child: const Text(
-                'Cancel transfer',
+                'Resume',
                 style: TextStyle(
                   fontSize: AppText.button,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
+          )
+        else
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 52,
+                  child: OutlinedButton(
+                    onPressed: _pause,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.orange,
+                      side: const BorderSide(color: AppColors.orange),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.button),
+                      ),
+                    ),
+                    child: const Text(
+                      'Pause',
+                      style: TextStyle(
+                        fontSize: AppText.button,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpace.md),
+              Expanded(
+                child: SizedBox(
+                  height: 52,
+                  child: OutlinedButton(
+                    onPressed: _cancel,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                      side: const BorderSide(color: AppColors.error),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.button),
+                      ),
+                    ),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: AppText.button,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         const SizedBox(height: AppSpace.sm),
         const AdBanner(

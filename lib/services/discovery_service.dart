@@ -6,16 +6,21 @@ import '../models/device.dart';
 
 /// Cross-platform peer discovery over the shared WiFi (dart:io only).
 ///
-/// Each device binds a UDP socket on [broadcastPort], advertises itself with a
-/// small JSON hello every 3s, and listens for peers' hellos. Expired peers are
-/// pruned after [peerTtl]. This is the Tier-2 fallback from the guide's
-/// two-tier discovery strategy, implemented without native mDNS advertising.
+/// Each device binds a UDP socket on [broadcastPort], joins the [multicastGroup]
+/// multicast group, advertises itself with a small JSON hello every 3s, and
+/// listens for peers' hellos. Multicast (not directed broadcast) is used because
+/// limited broadcast (255.255.255.255) is blocked on most Android/iOS WiFi
+/// stacks, so a pure-broadcast implementation silently fails to discover peers
+/// on phones. Expired peers are pruned after [peerTtl].
 class DiscoveryService {
   static const int broadcastPort = 9260;
+  static const String multicastGroup = '239.255.255.250';
   static const Duration peerTtl = Duration(seconds: 12);
 
   String selfName;
   final int transferPort;
+  final String selfPlatform;
+  String selfPubkey;
 
   RawDatagramSocket? _socket;
   Timer? _heartbeat;
@@ -23,15 +28,34 @@ class DiscoveryService {
   final Set<int> _sentNonces = {};
   final StreamController<void> _changes = StreamController.broadcast();
 
+  /// Addresses we announce to: the multicast group first, then a best-effort
+  /// limited broadcast so the occasional network that forwards it still works.
+  List<InternetAddress> _targets = [InternetAddress(multicastGroup)];
+
   Stream<void> get onChanges => _changes.stream;
 
-  DiscoveryService({required this.selfName, required this.transferPort});
+  DiscoveryService({
+    required this.selfName,
+    required this.transferPort,
+    this.selfPlatform = '',
+    this.selfPubkey = '',
+  });
 
   /// Updates the advertised name and announces it immediately so peers see the
   /// change without waiting for the next heartbeat tick.
   void setSelfName(String name) {
     if (name.isEmpty || name == selfName) return;
     selfName = name;
+    _announce();
+    _changes.add(null);
+  }
+
+  /// Updates the advertised public key (e.g. after it is generated late in
+  /// startup) and re-announces so peers learn it without waiting for the next
+  /// heartbeat.
+  void setSelfPubkey(String pubkey) {
+    if (pubkey == selfPubkey) return;
+    selfPubkey = pubkey;
     _announce();
     _changes.add(null);
   }
@@ -46,6 +70,16 @@ class DiscoveryService {
       reusePort: true,
     );
     _socket!.broadcastEnabled = true;
+    try {
+      _socket!.joinMulticast(InternetAddress(multicastGroup));
+    } catch (_) {
+      // Multicast may be unsupported on some interfaces; the socket still
+      // receives unicast/broadcast hellos, so discovery degrades gracefully.
+    }
+    _targets = [
+      InternetAddress(multicastGroup),
+      InternetAddress(broadcastAddress),
+    ];
     _socket!.listen(_onData);
     _announce();
     _heartbeat = Timer.periodic(
@@ -84,16 +118,16 @@ class DiscoveryService {
       'type': 'transfer_app_hello',
       'name': selfName,
       'port': transferPort,
+      'platform': selfPlatform,
+      'pubkey': selfPubkey,
       'nonce': nonce,
     });
-    try {
-      socket.send(
-        utf8.encode(payload),
-        InternetAddress(broadcastAddress),
-        broadcastPort,
-      );
-    } catch (_) {
-      // Broadcasts can be dropped on isolated networks; that is expected.
+    for (final target in _targets) {
+      try {
+        socket.send(utf8.encode(payload), target, broadcastPort);
+      } catch (_) {
+        // A target may be unreachable on some networks; keep trying the rest.
+      }
     }
   }
 
@@ -126,6 +160,8 @@ class DiscoveryService {
       name: msg.name,
       ip: datagram.address,
       port: msg.port,
+      platform: msg.platform,
+      pubkey: msg.pubkey,
       seenAt: now,
     );
     if (changed) {
@@ -149,28 +185,42 @@ class _Peer {
   final String name;
   final InternetAddress ip;
   final int port;
+  final String platform;
+  final String pubkey;
   final DateTime seenAt;
 
   _Peer({
     required this.name,
     required this.ip,
     required this.port,
+    required this.platform,
+    required this.pubkey,
     required this.seenAt,
   });
 
-  TransferDevice toDevice() => TransferDevice(name: name, ip: ip.address, port: port);
+  TransferDevice toDevice() => TransferDevice(
+        name: name,
+        ip: ip.address,
+        port: port,
+        platform: platform,
+        pubkey: pubkey,
+      );
 }
 
 class _Message {
   final String type;
   final String name;
   final int port;
+  final String platform;
+  final String pubkey;
   final int nonce;
 
   _Message({
     required this.type,
     required this.name,
     required this.port,
+    required this.platform,
+    required this.pubkey,
     required this.nonce,
   });
 
@@ -182,6 +232,8 @@ class _Message {
         type: json['type'] as String? ?? '',
         name: json['name'] as String? ?? '',
         port: json['port'] as int? ?? 0,
+        platform: json['platform'] as String? ?? '',
+        pubkey: json['pubkey'] as String? ?? '',
         nonce: json['nonce'] as int? ?? 0,
       );
     } catch (_) {
