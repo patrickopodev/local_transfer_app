@@ -10,7 +10,7 @@
     <application
         android:label="LocalDrop"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/launcher_icon">
         <!-- Camera permission required by mobile_scanner for QR scanning -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
