@@ -1,4 +1,4 @@
-name: Build Debug APK
+name: Build AAB
 
 on:
   push:
@@ -32,11 +32,11 @@ jobs:
       - name: Run tests
         run: flutter test
 
-      - name: Build debug APK
-        run: flutter build apk --debug --android-skip-build-dependency-validation
+      - name: Build debug AAB
+        run: flutter build appbundle --debug --android-skip-build-dependency-validation
 
-      - name: Upload APK
+      - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
-          name: localdrop-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: localdrop-debug-aab
+          path: build/app/outputs/bundle/debug/app-debug.aab
