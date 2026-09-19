@@ -46,3 +46,7 @@ app.*.map.json
 
 # Generated graph
 /graphify-out/
+
+# Keystore
+/android/app/upload-keystore.jks
+/android/app/key.properties
