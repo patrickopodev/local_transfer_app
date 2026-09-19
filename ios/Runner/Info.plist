@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Local Transfer</string>
+	<string>LocalDrop</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera access is required to scan QR pairing codes.</string>
 	<key>NSLocalNetworkUsageDescription</key>
@@ -19,7 +19,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>local_transfer_app</string>
+	<string>LocalDrop</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
