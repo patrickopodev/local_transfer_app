@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LocalDrop — Privacy Policy</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; line-height: 1.6; color: #1a1a1a; }
+  h1 { font-size: 28px; } h2 { font-size: 20px; margin-top: 28px; }
+  .meta { color: #666; font-size: 14px; } a { color: #0b57d0; }
+  code { background: #f1f3f4; padding: 1px 5px; border-radius: 4px; font-size: 14px; }
+</style>
+</head>
+<body>
+<h1>LocalDrop — Privacy Policy</h1>
+<p class="meta">Effective date: September 20, 2026 · App: LocalDrop (<code>com.localdrop.app</code>), version 1.0.0+ · Developer: LocalDrop (via <a href="https://github.com/patrickopodev/local_transfer_app">patrickopodev/local_transfer_app</a>)</p>
+
+<p>LocalDrop is a local file-transfer app (Blip/SHAREit style). Discovery uses UDP multicast on your local network (LAN) and transfers use direct TCP sockets between your devices. <strong>Your files are sent peer-to-peer over your local network — they are not uploaded to our servers, because we operate no servers for this app.</strong></p>
+
+<h2>1. Data we store on your device (not collected by us)</h2>
+<ul>
+  <li><strong>Device name</strong> (default “My Device”, editable in Settings). It is broadcast to nearby devices during discovery so they can show who is sharing. Stored only on your device.</li>
+  <li><strong>Transfer history</strong> (<code>transfer_history.json</code> in the app’s private documents directory) — a local log of your sends/receives.</li>
+  <li><strong>Files you send or receive.</strong> Received files land in Downloads (or the folder you choose in Settings). The app only accesses files you explicitly pick via the system file picker, plus files other devices send you after you accept them.</li>
+</ul>
+<p>We do not create accounts, do not ask for your name, email, or phone number, and do not receive any of the above data.</p>
+
+<h2>2. Permissions and why they are used</h2>
+<ul>
+  <li><code>INTERNET</code>, <code>ACCESS_NETWORK_STATE</code>, <code>ACCESS_WIFI_STATE</code>, <code>CHANGE_WIFI_MULTICAST_STATE</code> — required for LAN discovery and direct device-to-device transfer.</li>
+  <li><code>CAMERA</code> — used only for QR-code pairing (via on-device scanning). Camera frames are processed on your device to read the pairing code and are never recorded or transmitted by us.</li>
+  <li>File access — via the Android system file picker / folder picker. The app reads only files you select and writes received files to your chosen receive location.</li>
+</ul>
+<p>The app does not request location, contacts, microphone, or SMS/call permissions.</p>
+
+<h2>3. Data shared with third parties</h2>
+<p>The app integrates <strong>Google AdMob</strong> for advertising (<code>google_mobile_ads</code>). AdMob is operated by Google LLC and may collect device identifiers (such as the advertising ID), IP address, device and app information, and ad-interaction data in order to serve and measure ads, per Google’s own policies:</p>
+<ul>
+  <li><a href="https://policies.google.com/privacy">Google Privacy Policy</a></li>
+  <li><a href="https://support.google.com/admob/answer/6128543">AdMob &amp; the Google Privacy Policy</a></li>
+</ul>
+<p>You can reset or delete your advertising ID and opt out of ad personalization in your Android device settings (Settings → Privacy → Ads). No other third-party SDK in the app collects data. We run no analytics SDK and no crash-reporting SDK in version 1.0.0.</p>
+
+<h2>4. Data retention and your controls</h2>
+<ul>
+  <li>Change your device name or receive folder any time in Settings.</li>
+  <li>Delete received files with any file manager; delete transfer history by clearing the app’s data (Android Settings → Apps → LocalDrop → Storage → Clear data) or by uninstalling the app, which removes all on-device data.</li>
+  <li>Because transfers are peer-to-peer, files you already sent to someone else’s device cannot be recalled by us — ask the recipient to delete them.</li>
+</ul>
+
+<h2>5. Children</h2>
+<p>LocalDrop is a general-purpose utility and is not directed to children under 13. We do not knowingly collect personal information from children.</p>
+
+<h2>6. Security</h2>
+<p>Transfers travel over your local network as ordinary LAN traffic. Only share on networks you trust, verify the device name / pairing code before accepting transfers, and keep your device OS up to date.</p>
+
+<h2>7. Changes to this policy</h2>
+<p>If the app’s data practices change, this page will be updated with a new effective date. Material changes will be reflected in the app’s store listing.</p>
+
+<h2>8. Contact</h2>
+<p>Questions about this policy: open an issue at <a href="https://github.com/patrickopodev/local_transfer_app/issues">github.com/patrickopodev/local_transfer_app/issues</a> or email <a href="mailto:privacy@localdrop.app">privacy@localdrop.app</a>. (If that mailbox is not yet monitored, the GitHub issue tracker is the fastest channel.)</p>
+</body>
+</html>
