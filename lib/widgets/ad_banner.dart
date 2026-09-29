@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
@@ -31,15 +32,35 @@ class _AdBannerState extends State<AdBanner> {
   }
 
   Future<void> _load() async {
+    // MobileAds.initialize() is idempotent. Awaiting it here (in addition to
+    // main()) guarantees we never call BannerAd.load() before init finishes,
+    // which throws on some devices and would otherwise surface as a startup
+    // crash. Any failure just leaves the empty placeholder.
+    try {
+      await MobileAds.instance.initialize();
+    } catch (_) {
+      return;
+    }
+    // In debug builds always use Google's test unit: production units may not
+    // be serving yet and must not receive test traffic.
+    final adUnitId = kDebugMode
+        ? 'ca-app-pub-3940256099942544/6300978111'
+        : widget.adUnitId;
     final ad = BannerAd(
-      adUnitId: widget.adUnitId,
+      adUnitId: adUnitId,
       size: widget.size,
       request: const AdRequest(),
       listener: BannerAdListener(
-        onAdLoaded: (_) => setState(() => _loaded = true),
+        onAdLoaded: (_) {
+          if (!mounted) return;
+          setState(() => _loaded = true);
+        },
         onAdFailedToLoad: (_, error) {
-          _ad?.dispose();
+          final stale = _ad;
           _ad = null;
+          try {
+            stale?.dispose();
+          } catch (_) {}
         },
       ),
     );
@@ -47,15 +68,21 @@ class _AdBannerState extends State<AdBanner> {
     try {
       await ad.load();
     } catch (_) {
-      _ad?.dispose();
+      final stale = _ad;
       _ad = null;
+      try {
+        stale?.dispose();
+      } catch (_) {}
     }
   }
 
   @override
   void dispose() {
-    _ad?.dispose();
+    final stale = _ad;
     _ad = null;
+    try {
+      stale?.dispose();
+    } catch (_) {}
     super.dispose();
   }
 

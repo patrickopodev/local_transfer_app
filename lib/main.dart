@@ -7,7 +7,14 @@ import 'theme/theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await MobileAds.instance.initialize();
+  // Ads are optional: never let a failed Mobile Ads init (no Play Services,
+  // no network, inactive App ID) prevent the app from starting. An unguarded
+  // await here throws before runApp() and looks like "crash on open".
+  try {
+    await MobileAds.instance.initialize();
+  } catch (_) {
+    // Ignore — AdBanner already shows an empty placeholder when ads fail.
+  }
   runApp(const LocalDropApp());
 }
 
@@ -43,7 +50,13 @@ class _LocalDropAppRootState extends State<LocalDropAppRoot> {
   }
 
   Future<void> _bootstrap() async {
-    await _controller.init();
+    try {
+      await _controller.init();
+    } catch (_) {
+      // init() already swallows per-step failures, but never let anything
+      // here escape as an unhandled async exception on launch.
+      return;
+    }
     if (widget.autoStart) {
       _controller.start().catchError((Object _) {
         // Networking may be unavailable (e.g. bad permissions); the UI
