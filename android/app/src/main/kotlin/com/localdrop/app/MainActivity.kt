@@ -1,4 +1,4 @@
-package com.example.local_transfer_app
+package com.localdrop.app
 
 import io.flutter.embedding.android.FlutterActivity
 
