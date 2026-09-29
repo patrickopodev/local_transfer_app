@@ -7,8 +7,13 @@ plugins {
 }
 
 val keystorePropertiesFile = file("key.properties")
+// key.properties is gitignored and only exists for signed release builds
+// (local keystore or CI secrets). Debug builds must work without it.
+val hasSigningConfig = keystorePropertiesFile.exists()
 val keystoreProperties = Properties().apply {
-    load(keystorePropertiesFile.inputStream())
+    if (hasSigningConfig) {
+        load(keystorePropertiesFile.inputStream())
+    }
 }
 
 android {
@@ -17,11 +22,13 @@ android {
     ndkVersion = flutter.ndkVersion
 
     signingConfigs {
-        create("release") {
-            storeFile = file(keystoreProperties["storeFile"] as String)
-            storePassword = keystoreProperties["storePassword"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
-            keyAlias = keystoreProperties["keyAlias"] as String
+        if (hasSigningConfig) {
+            create("release") {
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+            }
         }
     }
 
@@ -42,7 +49,9 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            if (hasSigningConfig) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 }
