@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
+import '../config/ad_units.dart';
+
 /// A reusable AdMob banner that loads a [BannerAd] on init and renders it
 /// once available. Falls back to an empty placeholder while loading or if the
 /// ad fails, so it never crashes the surrounding layout.
@@ -90,6 +92,9 @@ class _AdBannerState extends State<AdBanner> {
   Widget build(BuildContext context) {
     final width = widget.size.width.toDouble();
     final height = widget.size.height.toDouble();
+    if (AdConfig.screenshotMode) {
+      return const SizedBox.shrink();
+    }
     if (!_loaded || _ad == null) {
       return SizedBox(width: width, height: height);
     }

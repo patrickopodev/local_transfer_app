@@ -3,6 +3,10 @@
 /// Production AdMob IDs (app + banner unit created 2026-09-20).
 /// New ad units can take up to an hour to start serving real ads.
 abstract final class AdConfig {
+  /// Set to true via `--dart-define=SCREENSHOT_MODE=true` to hide all ad
+  /// banners (e.g. for Play Store screenshots).
+  static const bool screenshotMode =
+      bool.fromEnvironment('SCREENSHOT_MODE', defaultValue: false);
   /// AdMob App ID, registered under your AdMob account.
   static const String appId = 'ca-app-pub-3516223940521946~3416810830';
 
