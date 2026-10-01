@@ -58,6 +58,7 @@ class _AdBannerState extends State<AdBanner> {
           setState(() => _loaded = true);
         },
         onAdFailedToLoad: (_, error) {
+          debugPrint('Ad failed to load: $error');
           final stale = _ad;
           _ad = null;
           try {
@@ -96,7 +97,12 @@ class _AdBannerState extends State<AdBanner> {
       return const SizedBox.shrink();
     }
     if (!_loaded || _ad == null) {
-      return SizedBox(width: width, height: height);
+      return Container(
+        width: width,
+        height: height,
+        color: Colors.red.withValues(alpha: 0.3),
+        child: const Center(child: Text('Ad placeholder')),
+      );
     }
     return Align(
       alignment: widget.align,
