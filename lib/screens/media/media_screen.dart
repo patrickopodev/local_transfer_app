@@ -2,10 +2,13 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../app/app_controller.dart';
 import '../../models/transfer_record.dart';
 import '../../theme/theme.dart';
+import '../../utils/file_name.dart';
+import '../../utils/format.dart';
 import '../../widgets/ad_banner.dart';
 import '../../config/ad_units.dart';
 
@@ -20,11 +23,6 @@ class MediaScreen extends StatefulWidget {
 }
 
 class _MediaScreenState extends State<MediaScreen> {
-  static const _mediaExtensions = {
-    'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp',
-    'mp4', 'mov', 'mkv', 'avi', 'webm',
-  };
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -34,29 +32,31 @@ class _MediaScreenState extends State<MediaScreen> {
           valueListenable: widget.controller.history,
           builder: (context, records, _) {
             final media = records
-                .where((r) =>
-                    r.direction == TransferDirection.received &&
-                    r.status == TransferRecordStatus.completed &&
-                    r.savePath != null)
-                .where((r) {
-              final ext = r.filename.split('.').last.toLowerCase();
-              return _mediaExtensions.contains(ext);
-            }).toList();
+                .where(
+                  (r) =>
+                      r.direction == TransferDirection.received &&
+                      r.status == TransferRecordStatus.completed &&
+                      r.savePath != null,
+                )
+                .where((r) => isMediaFile(r.filename))
+                .toList();
 
             return CustomScrollView(
               slivers: [
-                const SliverToBoxAdapter(
-                  child: _Header(),
-                ),
+                const SliverToBoxAdapter(child: _Header()),
                 if (media.isEmpty)
                   SliverFillRemaining(
                     hasScrollBody: false,
-                    child: _EmptyState(),
+                    child: const _EmptyState(),
                   )
                 else
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(
-                        AppSpace.xl, 0, AppSpace.xl, AppSpace.xxl),
+                      AppSpace.xl,
+                      0,
+                      AppSpace.xl,
+                      AppSpace.xxl,
+                    ),
                     sliver: SliverList.builder(
                       itemCount: media.length,
                       itemBuilder: (context, i) => Padding(
@@ -68,7 +68,11 @@ class _MediaScreenState extends State<MediaScreen> {
                 const SliverToBoxAdapter(
                   child: Padding(
                     padding: EdgeInsets.fromLTRB(
-                        AppSpace.xl, AppSpace.xs, AppSpace.xl, AppSpace.xxl),
+                      AppSpace.xl,
+                      AppSpace.xs,
+                      AppSpace.xl,
+                      AppSpace.xxl,
+                    ),
                     child: AdBanner(
                       adUnitId: AdConfig.transfersBanner,
                       size: AdSize.banner,
@@ -92,7 +96,11 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-          AppSpace.xl, AppSpace.lg, AppSpace.xl, AppSpace.lg),
+        AppSpace.xl,
+        AppSpace.lg,
+        AppSpace.xl,
+        AppSpace.lg,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -118,6 +126,8 @@ class _Header extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -126,7 +136,11 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.photo_library, size: 48, color: AppColors.secondaryText),
+            const Icon(
+              Icons.photo_library,
+              size: 48,
+              color: AppColors.secondaryText,
+            ),
             const SizedBox(height: AppSpace.md),
             const Text(
               'No media yet',
@@ -158,12 +172,7 @@ class _MediaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isVideo = record.filename
-        .split('.')
-        .last
-        .toLowerCase()
-        .contains('mp4') ||
-        record.filename.split('.').last.toLowerCase().contains('mov');
+    final isVideo = isVideoFile(record.filename);
 
     return Container(
       padding: const EdgeInsets.all(AppSpace.lg),
@@ -205,7 +214,7 @@ class _MediaRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${record.peer} · ${record.sizeBytes > 0 ? _formatSize(record.sizeBytes) : ''}',
+                  '${record.peer} · ${record.sizeBytes > 0 ? Format.bytes(record.sizeBytes) : ''}',
                   style: const TextStyle(
                     fontSize: AppText.secondary - 1,
                     color: AppColors.secondaryText,
@@ -219,7 +228,8 @@ class _MediaRow extends StatelessWidget {
               if (record.savePath != null) {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => _MediaViewerScreen(filePath: record.savePath!),
+                    builder: (_) =>
+                        _MediaViewerScreen(filePath: record.savePath!),
                   ),
                 );
               }
@@ -231,49 +241,53 @@ class _MediaRow extends StatelessWidget {
       ),
     );
   }
-
-  String _formatSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
 }
 
-class _MediaViewerScreen extends StatelessWidget {
+class _MediaViewerScreen extends StatefulWidget {
   const _MediaViewerScreen({required this.filePath});
 
   final String filePath;
 
   @override
+  State<_MediaViewerScreen> createState() => _MediaViewerScreenState();
+}
+
+class _MediaViewerScreenState extends State<_MediaViewerScreen> {
+  late final VideoPlayerController _video;
+  late final Future<void> _videoInit;
+  bool _videoFailed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _video = VideoPlayerController.file(File(widget.filePath));
+    _videoInit = _video
+        .initialize()
+        .then((_) {
+          if (mounted) setState(() {});
+        })
+        .catchError((Object e) {
+          // An unsupported codec or a file deleted since it was received — fall
+          // back to the still-frame card instead of an endless spinner.
+          if (mounted) setState(() => _videoFailed = true);
+        });
+  }
+
+  @override
+  void dispose() {
+    _video.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final ext = filePath.split('.').last.toLowerCase();
-    final isVideo = ext.contains('mp4') ||
-        ext.contains('mov') ||
-        ext.contains('mkv') ||
-        ext.contains('avi') ||
-        ext.contains('webm');
+    final isVideo = isVideoFile(widget.filePath);
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          if (isVideo)
-            Center(
-              child: Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                  color: Colors.grey[900],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.play_circle_fill,
-                    color: Colors.white, size: 64),
-              ),
-            )
-          else
-            InteractiveViewer(
-              child: Image.file(File(filePath), fit: BoxFit.contain),
-            ),
+          if (isVideo) _buildVideo() else _buildImage(),
           Positioned(
             top: 40,
             left: 20,
@@ -282,6 +296,92 @@ class _MediaViewerScreen extends StatelessWidget {
               onPressed: () => Navigator.of(context).pop(),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImage() => InteractiveViewer(
+    child: Image.file(
+      File(widget.filePath),
+      fit: BoxFit.contain,
+      // A file deleted since it was received should show a message rather
+      // than throw from the image decoder.
+      errorBuilder: (_, _, _) => const _ViewerMessage(
+        icon: Icons.broken_image_outlined,
+        label: 'Image unavailable',
+      ),
+    ),
+  );
+
+  Widget _buildVideo() {
+    if (_videoFailed) {
+      return const _ViewerMessage(
+        icon: Icons.videocam_off_outlined,
+        label: 'Video cannot be played here',
+      );
+    }
+    return FutureBuilder<void>(
+      future: _videoInit,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done ||
+            !_video.value.isInitialized) {
+          return const Center(
+            child: CircularProgressIndicator(color: Colors.white),
+          );
+        }
+        return Center(
+          child: AspectRatio(
+            aspectRatio: _video.value.aspectRatio,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                VideoPlayer(_video),
+                VideoProgressIndicator(
+                  _video,
+                  allowScrubbing: true,
+                  colors: const VideoProgressColors(
+                    playedColor: Colors.white,
+                    bufferedColor: Colors.white24,
+                    backgroundColor: Colors.white10,
+                  ),
+                ),
+                IconButton(
+                  iconSize: 64,
+                  onPressed: () => setState(() {
+                    _video.value.isPlaying ? _video.pause() : _video.play();
+                  }),
+                  icon: Icon(
+                    _video.value.isPlaying
+                        ? Icons.pause_circle
+                        : Icons.play_circle_fill,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ViewerMessage extends StatelessWidget {
+  const _ViewerMessage({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white54, size: 48),
+          const SizedBox(height: AppSpace.md),
+          Text(label, style: const TextStyle(color: Colors.white70)),
         ],
       ),
     );

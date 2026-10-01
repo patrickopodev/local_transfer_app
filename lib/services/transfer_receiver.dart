@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/transfer_models.dart';
+import '../utils/file_name.dart';
 
 class TransferReceiver {
   static const int defaultPort = 5678;
@@ -63,7 +64,9 @@ class TransferReceiver {
       closed = true;
       subscription?.cancel();
       await bodySub?.cancel();
-      try { await body.close(); } catch (_) {}
+      try {
+        await body.close();
+      } catch (_) {}
       client.destroy();
     }
 
@@ -71,11 +74,21 @@ class TransferReceiver {
       try {
         sink!.add(chunk);
         received += chunk.length;
-        _incoming.add(ReceiveEvent.progress(
-          id: jobId, received: received, total: meta!.size));
+        _incoming.add(
+          ReceiveEvent.progress(
+            id: jobId,
+            received: received,
+            total: meta!.size,
+          ),
+        );
       } catch (e) {
-        _incoming.add(ReceiveEvent.error(
-          error: 'Failed to write chunk: $e', source: source, id: jobId));
+        _incoming.add(
+          ReceiveEvent.error(
+            error: 'Failed to write chunk: $e',
+            source: source,
+            id: jobId,
+          ),
+        );
         abort();
       }
     }
@@ -83,38 +96,65 @@ class TransferReceiver {
     void setupBody() {
       if (meta!.encrypted) {
         if (meta!.nonce == null || meta!.pubkey == null || _keyPair == null) {
-          _incoming.add(ReceiveEvent.error(
-            error: 'Encrypted transfer but no key available',
-            source: source,
-            id: jobId,
-          ));
+          _incoming.add(
+            ReceiveEvent.error(
+              error: 'Encrypted transfer but no key available',
+              source: source,
+              id: jobId,
+            ),
+          );
           abort();
           return;
         }
-        _deriveKey(meta!.pubkey!).then((keyBytes) {
-          if (closed) return;
-          bodySub = _cipher
-              .decryptStream(
-                body.stream,
-                secretKey: SecretKey(keyBytes),
-                nonce: base64Decode(meta!.nonce!),
-                mac: Mac.empty,
-              )
-              .listen((chunk) {
-                try { handleBodyChunk(chunk); } catch (_) {}
-              }, onDone: () { if (!closed) bodyCompleter.complete(); },
-                  onError: (e) { if (!closed) bodyCompleter.completeError(e); });
-        }).catchError((e) {
-          if (closed) return;
-          _incoming.add(ReceiveEvent.error(
-            error: 'Key derivation failed: $e', source: source, id: jobId));
-          abort();
-        });
+        _deriveKey(meta!.pubkey!)
+            .then((keyBytes) {
+              if (closed) return;
+              bodySub = _cipher
+                  .decryptStream(
+                    body.stream,
+                    secretKey: SecretKey(keyBytes),
+                    nonce: base64Decode(meta!.nonce!),
+                    mac: Mac.empty,
+                  )
+                  .listen(
+                    (chunk) {
+                      try {
+                        handleBodyChunk(chunk);
+                      } catch (_) {}
+                    },
+                    onDone: () {
+                      if (!closed) bodyCompleter.complete();
+                    },
+                    onError: (e) {
+                      if (!closed) bodyCompleter.completeError(e);
+                    },
+                  );
+            })
+            .catchError((e) {
+              if (closed) return;
+              _incoming.add(
+                ReceiveEvent.error(
+                  error: 'Key derivation failed: $e',
+                  source: source,
+                  id: jobId,
+                ),
+              );
+              abort();
+            });
       } else {
-        bodySub = body.stream.listen((chunk) {
-          try { handleBodyChunk(chunk); } catch (_) {}
-        }, onDone: () { if (!closed) bodyCompleter.complete(); },
-            onError: (e) { if (!closed) bodyCompleter.completeError(e); });
+        bodySub = body.stream.listen(
+          (chunk) {
+            try {
+              handleBodyChunk(chunk);
+            } catch (_) {}
+          },
+          onDone: () {
+            if (!closed) bodyCompleter.complete();
+          },
+          onError: (e) {
+            if (!closed) bodyCompleter.completeError(e);
+          },
+        );
       }
     }
 
@@ -126,25 +166,37 @@ class TransferReceiver {
             buffer.addAll(bytes);
             final headerEnd = _indexOfNewline(buffer);
             if (headerEnd == -1) return;
-            final headerLine =
-                utf8.decode(buffer.sublist(0, headerEnd), allowMalformed: true);
+            final headerLine = utf8.decode(
+              buffer.sublist(0, headerEnd),
+              allowMalformed: true,
+            );
             try {
               meta = TransferMeta.fromJson(
                 jsonDecode(headerLine) as Map<String, Object?>,
               );
             } catch (e) {
-              _incoming.add(ReceiveEvent.error(
-                error: 'Invalid metadata header: $e', source: source));
+              _incoming.add(
+                ReceiveEvent.error(
+                  error: 'Invalid metadata header: $e',
+                  source: source,
+                ),
+              );
               await abort();
               return;
             }
             final saveDir = await resolveSaveDir();
-            target = File('${saveDir.path}/${meta!.filename}');
+            target = await _resolveTarget(saveDir, meta!.filename);
             sink = target!.openWrite();
             jobId = _nextJobIdSync();
             started = true;
-            _incoming.add(ReceiveEvent.started(
-              id: jobId, meta: meta!, savePath: target!.path, source: source));
+            _incoming.add(
+              ReceiveEvent.started(
+                id: jobId,
+                meta: meta!,
+                savePath: target!.path,
+                source: source,
+              ),
+            );
             setupBody();
             final remainder = buffer.sublist(headerEnd + 1);
             buffer = <int>[];
@@ -157,7 +209,10 @@ class TransferReceiver {
         }
       },
       onDone: () async {
-        if (!started || sink == null) { await abort(); return; }
+        if (!started || sink == null) {
+          await abort();
+          return;
+        }
         try {
           await body.close();
           await bodyCompleter.future;
@@ -166,20 +221,32 @@ class TransferReceiver {
         await sink!.close();
         final ok = await _verify(target!, meta!);
         try {
-          client.add(utf8.encode(
-            '${jsonEncode({'status': ok ? 'ok' : 'error',
-              'message': ok ? null : 'checksum mismatch'})}\n'));
+          client.add(
+            utf8.encode(
+              '${jsonEncode({'status': ok ? 'ok' : 'error', 'message': ok ? null : 'checksum mismatch'})}\n',
+            ),
+          );
           await client.flush();
         } catch (_) {}
-        _incoming.add(ReceiveEvent.completed(
-          id: jobId, meta: meta!, savePath: target!.path,
-          verified: ok, source: source));
+        _incoming.add(
+          ReceiveEvent.completed(
+            id: jobId,
+            meta: meta!,
+            savePath: target!.path,
+            verified: ok,
+            source: source,
+          ),
+        );
         await abort();
       },
       onError: (Object e) async {
-        _incoming.add(ReceiveEvent.error(
-          error: e.toString(), source: source,
-          id: started ? jobId : -1));
+        _incoming.add(
+          ReceiveEvent.error(
+            error: e.toString(),
+            source: source,
+            id: started ? jobId : -1,
+          ),
+        );
         await abort();
       },
     );
@@ -191,8 +258,10 @@ class TransferReceiver {
     final algorithm = X25519();
     final shared = await algorithm.sharedSecretKey(
       keyPair: _keyPair!,
-      remotePublicKey:
-          SimplePublicKey(base64Decode(peerPubkeyB64), type: KeyPairType.x25519),
+      remotePublicKey: SimplePublicKey(
+        base64Decode(peerPubkeyB64),
+        type: KeyPairType.x25519,
+      ),
     );
     return await shared.extractBytes();
   }
@@ -220,6 +289,36 @@ class TransferReceiver {
     }
     conv.close();
     return sink.digest.toString();
+  }
+
+  /// Resolves the on-disk path for an incoming [rawName], guaranteeing the
+  /// result lands directly inside [dir].
+  ///
+  /// The filename arrives from an untrusted peer on the LAN, so it is
+  /// sanitized rather than trusted: path separators, `..`, drive letters and
+  /// NUL bytes are stripped, so a peer sending `../../etc/passwd` (or an
+  /// absolute path) can only ever write into [dir]. If the sanitized name
+  /// already exists, ` (1)`, ` (2)`, ... is inserted before the extension so a
+  /// second transfer of the same name never silently overwrites the first.
+  Future<File> _resolveTarget(Directory dir, String rawName) async {
+    final name = sanitizeFileName(rawName);
+    var candidate = File('${dir.path}/$name');
+    if (!await candidate.exists()) return candidate;
+
+    final dot = name.lastIndexOf('.');
+    // Only treat a leading dot as an extension marker when it is not the whole
+    // name, so dotfiles like `.env` are not split into '' + 'env'.
+    final hasExtension = dot > 0;
+    final stem = hasExtension ? name.substring(0, dot) : name;
+    final ext = hasExtension ? name.substring(dot) : '';
+    for (var i = 1; i < 1000; i++) {
+      candidate = File('${dir.path}/$stem ($i)$ext');
+      if (!await candidate.exists()) return candidate;
+    }
+    // Fall back to a timestamped name rather than looping forever or clobbering.
+    return File(
+      '${dir.path}/$stem-${DateTime.now().microsecondsSinceEpoch}$ext',
+    );
   }
 
   Future<Directory> resolveSaveDir() async {

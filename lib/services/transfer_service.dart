@@ -31,8 +31,10 @@ class TransferService {
     final algorithm = X25519();
     final shared = await algorithm.sharedSecretKey(
       keyPair: _keyPair!,
-      remotePublicKey:
-          SimplePublicKey(base64Decode(peerPubkeyB64), type: KeyPairType.x25519),
+      remotePublicKey: SimplePublicKey(
+        base64Decode(peerPubkeyB64),
+        type: KeyPairType.x25519,
+      ),
     );
     return await shared.extractBytes();
   }
@@ -42,7 +44,11 @@ class TransferService {
 
   Future<void> start({int port = defaultPort, KeyPair? keyPair}) async {
     if (keyPair != null) _keyPair = keyPair;
-    _receiver.setKeyPair(keyPair);
+    // Forward the resolved field, not the parameter: AppController injects the
+    // key via setKeyPair() and then calls start() with no argument, so passing
+    // the parameter would hand the receiver a null key and silently disable
+    // decryption for every incoming encrypted transfer.
+    _receiver.setKeyPair(_keyPair);
     await _receiver.start(port: port);
   }
 
@@ -83,9 +89,8 @@ class TransferService {
     _paused = false;
     _pauseCompleter = null;
     try {
-      final useEncryption = peerPubkey != null &&
-          peerPubkey.isNotEmpty &&
-          _keyPair != null;
+      final useEncryption =
+          peerPubkey != null && peerPubkey.isNotEmpty && _keyPair != null;
 
       List<int>? keyBytes;
       List<int>? nonceBytes;
@@ -106,8 +111,11 @@ class TransferService {
         pubkey: useEncryption ? selfPubkeyB64 : null,
       );
 
-      final socket = await Socket.connect(ip, port,
-          timeout: const Duration(seconds: 15));
+      final socket = await Socket.connect(
+        ip,
+        port,
+        timeout: const Duration(seconds: 15),
+      );
       var cancelled = false;
       try {
         final header = '${jsonEncode(meta.toJson())}\n';
@@ -147,17 +155,26 @@ class TransferService {
           return;
         }
 
+        // Start listening for the ack *before* closing, then half-close the
+        // write side. Reading from an already-closed socket relies on
+        // undefined behaviour; subscribing first keeps the ack stream alive
+        // while close() only shuts down the send direction (the receiver needs
+        // that EOF to finish verifying the checksum).
+        final ackFuture = _readAck(socket);
         await socket.close();
-        final ack = await _readAck(socket);
+        final ack = await ackFuture;
         if (ack.isOk) {
           onDone?.call();
         } else {
           throw Exception(
-              'Receiver rejected transfer: ${ack.message ?? "unknown reason"}');
+            'Receiver rejected transfer: ${ack.message ?? "unknown reason"}',
+          );
         }
       } finally {
         _sending = false;
-        try { socket.destroy(); } catch (_) {}
+        try {
+          socket.destroy();
+        } catch (_) {}
       }
     } catch (_) {
       _sending = false;
@@ -178,7 +195,9 @@ class TransferService {
       return const TransferAck(status: 'error', message: 'ack timeout');
     } catch (_) {
       return const TransferAck(
-          status: 'error', message: 'connection closed before ack');
+        status: 'error',
+        message: 'connection closed before ack',
+      );
     }
   }
 
