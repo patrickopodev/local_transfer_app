@@ -38,14 +38,39 @@ jobs:
       - name: Build debug AAB (no signing needed)
         run: flutter build appbundle --debug --android-skip-build-dependency-validation
 
+      - name: Warn that debug artifacts are not for Play upload
+        run: |
+          set -euo pipefail
+          AAB="build/app/outputs/bundle/debug/app-debug.aab"
+          rm -rf /tmp/dbgsig && mkdir -p /tmp/dbgsig
+          unzip -q -o "$AAB" 'META-INF/*' -d /tmp/dbgsig
+          SIG="$(find /tmp/dbgsig/META-INF -type f \( -name '*.RSA' -o -name '*.DSA' -o -name '*.EC' \) | head -n1)"
+          ACTUAL_SHA1="$(keytool -printcert -file "$SIG" \
+            | grep -iE 'sha-?1' \
+            | head -n1 \
+            | grep -oE '[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){19}' \
+            | tr 'a-f' 'A-F' || true)"
+          echo "Debug AAB signing certificate SHA1: ${ACTUAL_SHA1:-<unparseable>}"
+          {
+            echo "## Debug artifacts are NOT for Google Play upload"
+            echo
+            echo "app-debug.aab is signed with the ephemeral CI debug keystore:"
+            echo "\`${ACTUAL_SHA1:-<unparseable>}\`"
+            echo
+            echo "Play expects \`2D:5D:32:8C:36:4E:B7:30:99:07:35:92:4C:58:95:BC:88:1F:06:F2\`."
+            echo "GitHub runners create a new debug keystore per job, so this value changes on every run."
+            echo
+            echo "For Play, download **localdrop-release-aab** and upload **app-release.aab**."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: localdrop-debug-apk
+          name: localdrop-debug-apk-NOT-FOR-PLAY
           path: build/app/outputs/flutter-apk/app-debug.apk
 
       - name: Upload debug AAB
         uses: actions/upload-artifact@v4
         with:
-          name: localdrop-debug-aab
+          name: localdrop-debug-aab-NOT-FOR-PLAY
           path: build/app/outputs/bundle/debug/app-debug.aab
