@@ -48,6 +48,30 @@ jobs:
       - name: Build signed release APK
         run: flutter build apk --release --android-skip-build-dependency-validation
 
+      - name: Verify AAB signing certificate
+        run: |
+          set -euo pipefail
+          EXPECTED_SHA1="2D:5D:32:8C:36:4E:B7:30:99:07:35:92:4C:58:95:BC:88:1F:06:F2"
+          AAB="build/app/outputs/bundle/release/app-release.aab"
+          rm -rf /tmp/aabsig && mkdir -p /tmp/aabsig
+          unzip -q -o "$AAB" 'META-INF/*' -d /tmp/aabsig
+          SIG="$(find /tmp/aabsig/META-INF -type f \( -name '*.RSA' -o -name '*.DSA' -o -name '*.EC' \) | head -n1)"
+          if [ -z "$SIG" ]; then
+            echo "::error::No signature block found in $AAB - the bundle is UNSIGNED and Play will reject it."
+            exit 1
+          fi
+          ACTUAL_SHA1="$(keytool -printcert -file "$SIG" \
+            | grep -iE 'sha-?1' \
+            | head -n1 \
+            | grep -oE '[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){19}' \
+            | tr 'a-f' 'A-F' || true)"
+          echo "Signing certificate SHA1: ${ACTUAL_SHA1:-<unparseable>}"
+          if [ "$ACTUAL_SHA1" != "$EXPECTED_SHA1" ]; then
+            echo "::error::Signed with the wrong key. Play expects $EXPECTED_SHA1"
+            exit 1
+          fi
+          echo "Signing key matches the Play upload certificate."
+
       - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
